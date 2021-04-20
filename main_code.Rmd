@@ -1,0 +1,569 @@
+---
+title: "Etude de la criminalité et des indicateurs sociaux des départements Francais en 2020"
+author: "LO Mouhamadou Mansour & HAMZA Assoumani Chissi "
+date: "14 Avril 2021"
+output:
+  pdf_document: default
+  html_document:
+    toc: yes
+    toc_depth: 4
+    number_sections: yes
+  word_document:
+    toc: yes
+    toc_depth: '4'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = normalizePath("C:/Users/ashamza/Downloads/clust"))
+```
+# Introduction
+Depuis 2012, les crimes et délits enregistrés par les services de gendarmerie et de police nationale dans l’ensemble des départements français, y compris celles des DOM-TOM sont recensés. Les statistiques des crimes et délits enregistrés par les services de police et les unités de gendarmerie reposent sur des critères et des méthodes d'enregistrement communs et identiques autorisant la comparaison des données entre l'année de référence et la précédente ou la suivante. Elles sont établies à partir des plaintes reçues ou d'après les constatations diligentées par les différents services.
+
+À ces données sur la criminalité des différents départements français, des données sur des indicateurs sociaux-economiques ont aussi été rajoutées. Ces indicateurs portent sur la classe d'âge, niveau de vie, indicateur d'activité, etc.
+
+Nous ferons une étude sur les crimes et délits enregistrés durant l’année 2020, et sur les indicateurs sociaux selon les départements. Pour répondre à cette problématique, nous allons réaliser des analyses statistiques pour satisfaire aux questions suivantes :
+
+- Est-ce que l’on commet le même délit ou crime d’un département à l’autre ?
+
+- Les départements ont-ils les memes tendances criminelles ou delictuelles ?
+
+- Est-ce que les départements ont le même niveau de développement ?
+
+- Existe-t-il des indicateurs liés entre eux ?
+
+- Existe-t-il un lien entre le niveau de développement d'un département et sa criminalité ?
+
+
+Les réponses à ces différentes questions, seront le but de notre travail. 
+
+# description de données
+Nos jeu de données proviennent des sites gouvernementaux :  https://www.data.gouv.fr/fr/datasets/crimes-et-delits-enregistres-par-les-services-de-gendarmerie-et-de-police-depuis-2012/ , https://drees.solidarites-sante.gouv.fr/sources-outils-et-enquetes/les-indicateurs-sociaux-departementaux et https://www.data.gouv.fr/fr/datasets/departements-et-leurs-regions/
+
+Finalement, notre dataset final contient 99 observations qui sont les départements français et 23 variables. Selon la nature de nos variables et des individus, nous avons un pseudo table de contingence qui croise la variable département en ligne avec 99 modalités et en colonne d’une part la variable crime_delit avec 10 modalités et d’autre part les variables sur les indicateurs sociaux qui intègrent à la fois des indicateurs transversaux, reflétant le contexte territorial (parmi lesquels l’espérance de vie, le taux de pauvreté monétaire, les catégories sociales…) et des indicateurs propres à chaque thématique. 
+
+# Prétraitement de données
+
+Les jeux de données servant pour la construction de notre dataset final ont été téléchargé en OpenSource sur les sites *data.gouv.fr* et du *drees.solidarites-sante.gouv.fr* .  Nous avons pratiqué plusieurs transformations telles que : le nettoyage, la fusion, l’agrégation, regroupement de certaine modalité etc. L’ensemble de toutes ces transformations sont disponibles sur le fichier **données initiaux/creation_dataset.R** joint avec ce document. 
+ 
+```{r message=FALSE}
+library("FactoMineR")
+library("factoextra")
+library("missMDA")
+library("markdown")
+library("knitr")
+library("rmarkdown")
+#install('magick')
+library(magick)
+#setwd("C:/Users/Mansour Lo/Desktop/Dataset")
+dataset <-read.csv2("dataset.csv",encoding = "UTF-8",row.names = 1)
+dataset <- dataset[,-c(9)]
+d <- dataset[,1:10]
+indicsociaux <- dataset[1:98,11:23]
+```
+ 
+
+# Analyse de données
+
+Notre jeu de données est basé sur deux analyses. La première analyse consiste à étudier la criminalité et la seconde analyse consiste à étudier l’impact des indicateurs sociaux. Notre but est de tirer une conclusion, à savoir s’il existe des départements qui peuvent se ressembler au niveau de la vie sociale, mais aussi au niveau de la criminalité et délinquance. 
+
+## Etude sur les crimes et délits 
+
+Nous étudions un pseudo table de contingence qui croise en ligne la variable **département** avec 99 modalités et en colonne la variable **Crimes et délits** avec 10 modalités à savoir *Homicide_et_tentative, Coups_et_blessures, Prisedotage_Sequestration_Attentat, violence_Menaces, viol_Harcelements, Ventes_usage_stupefiant, Falsification_escroquerie, Destruction_Degradation, Vols_Cambriolages, Port_et_Detention_Armes_prohibe*.
+
+Vu la nature des variables, nous allons utilisé **Une Analyse Factorielle des Correspondances(AFC)** 
+
+**Vérifions si les deux variables sont indépandants**
+
+
+```{r message=FALSE,warning=FALSE}
+contingence<-as.table(as.matrix (d))
+chisq <- chisq.test(contingence)
+chisq
+```
+On rejette l'hypothèse d'indépendance. Les deux variables sont liées. Nous n'avons pas la même criminalité suivant les départements. 
+
+### Réalisation d'une AFC pour expliquer le lien entre les deux variables
+```{r message=FALSE,warning=FALSE}
+library ("FactoMineR")
+res.ca <- CA(contingence, graph = FALSE)
+```
+
+**Choix du nombre d'axes**
+
+L’inertie des axes factoriels indique d’une part si les variables sont structurées et suggère d’autre part le nombre judicieux de composantes principales à étudier.
+
+```{r message=FALSE,warning=FALSE}
+library ("factoextra")
+eig.val <- get_eigenvalue(res.ca) 
+eig.val
+```
+Les 2 premiers axes de l’ analyse expriment **73.34%** de l'inertie totale du jeu de données ; cela signifie que 73.34% de la variabilité totale du nuage des lignes (ou des colonnes) est représentée dans ce plan. C’est un pourcentage élevé, et le premier plan représente donc bien la variabilité contenue dans une très large part du jeu de données actif.
+
+```{r}
+fviz_eig(res.ca, addlabels = TRUE, ylim = c(0, 60), main = "Décomposition de l'inertie totale")
+```
+**Figure 1 - Décomposition de l’inertie totale**
+
+Une estimation du nombre pertinent d’axes à interpréter suggère de restreindre l’analyse à la description des 2 premiers axes.  Cette observation suggère que seuls ces axes sont porteurs d’une véritable information. En conséquence, la description de l’analyse sera restreinte à ces seuls axes.
+
+**Interprétation sémantique des profils lignes**
+
+1. *Suivant l'axe 1*
+
+```{r message=FALSE,warning=FALSE}
+row<-get_ca_row(res.ca)
+
+coord<-row$coord[,1]
+contrib<-row$contrib[,1]
+cos2<-row$cos2[,1]
+display<-cbind(coord,contrib,cos2)
+#display
+library(magick)
+imgage<- image_read("image/display1.JPG")
+plot(imgage, main="my image")
+```
+Le coté négatif de l’axe 1 est caractérisé par le profil *Paris* qui s’opposent aux profils *La Réunion et Pas de Calais*. Cela veut dire que la distribution statistique de la criminalité n’est pas la même entre Paris et La Réunion et Pas de Calais. 
+
+2. *suivant l'axe 2*
+
+```{r}
+row<-get_ca_row(res.ca)
+
+coord<-row$coord[,2]
+contrib<-row$contrib[,2]
+cos2<-row$cos2[,2]
+display<-cbind(coord,contrib,cos2)
+#display
+imgage<- image_read("image/display2.JPG")
+plot(imgage)
+```
+Sur l’axe 2, on remarque que le profil *Seine-Saint-Denis* est caractérisé sur le coté positif de l’axe, en opposition du profil *Hauts-de-seine*. Ce qui veut dire que la distribution caractérisant la criminalité et délit n’est pas la même entre Seine-Saint-Denis et Hauts-de-seine.
+
+3. *Répresentation graphique pour illustrer nos analyses*
+
+**Grapique Colorer en fonction du cos2**
+```{r message=FALSE,warning=FALSE}
+fviz_ca_row (res.ca, col.row = "cos2",
+             title ="Profils lignes selon leur cosinus²",
+             gradient.cols = c ("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE)
+```
+**Figure 2: Grapique Colorer en fonction du cos2**
+
+**Grapique Colorer en fonction de la contribution**
+```{r message=FALSE,warning=FALSE}
+fviz_ca_row(res.ca, pointsize = "contrib", 
+            title="Profils lignes selon leur contribution",
+            repel = TRUE)
+
+```
+**Figure 3: Profils lignes selon leur contribution**
+
+**Interprétation sémantique des profils colonnes**
+
+1. **Suivant l'axe 1**
+
+```{r message=FALSE,warning=FALSE}
+col<-get_ca_col(res.ca)
+
+coord<-col$coord[,1]
+contrib<-col$contrib[,1]
+cos2<-col$cos2[,1]
+display<-cbind(coord,contrib,cos2)
+display
+```
+Le profil *Vols_Cambriolages* caractérise le coté négatif de l’axe 1 par opposition au profil *Coups_et_blessures* sur le côté positif de l’axe 1. Cela signifie que les départements se différent sur les crimes et délits de types *Vols_Cambriolages* et du type *Coups_et_blessures*. 
+
+2. **Suivant l'axe 2**
+
+```{r}
+col<-get_ca_col(res.ca)
+
+coord<-col$coord[,2]
+contrib<-col$contrib[,2]
+cos2<-col$cos2[,2]
+display<-cbind(coord,contrib,cos2)
+display
+```
+Contrairement sur l’axe 2, on remarque une forte contribution du profil *Falsification_escroquerie* sur le coté négatif de l’axe, par opposition du profil *Vente_usage_stupifiant* dans le coté positif  de l’axe 2. Ce qui signifie que la distribution statistique pour les départements sur la criminalité de type *Falsification_escroquerie* et *Vente_usage_stupifiant* n’est pas la même.  
+
+3- *Représention graphique*
+
+
+```{r}
+fviz_ca_col(res.ca, repel = TRUE)
+```
+**Figure 4: graphique des profils colonnes**
+
+
+
+**Graphique colorer en fonction du Cos**
+```{r message=FALSE,warning=FALSE}
+fviz_ca_col(res.ca, col.col = "cos2",
+             title ="Profils colonnes selon leur cosinus²",
+             gradient.cols = c ("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE)
+```
+**Figure 5: Graphique colorer en fonction du Cos**
+
+
+
+**Graphique colorer selon la contribution** 
+```{r message=FALSE,warning=FALSE}
+fviz_ca_col(res.ca, col.col = "contrib",
+             title ="Profils colonnes selon leur contribution",
+             gradient.cols = c ("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE)
+
+```
+**Figure 6: Graphique colorer selon la contribution**
+
+
+### Classification 
+
+Dans cette partie, nous réalisons une classification pour explorer nos données. 
+Les questions qui peuvent se poser et qui feront l'objet de l'analyse sont les suivantes :
+
+1. Quels sont les profils lignes les plus caractéristiques pour une partition donnée. 
+2. Quelles sont les variables ( les profils colonnes) qui caractérisent le mieux la partition de chaque classe. 
+
+**Appliquons la classification hiérarchique sur le résultat de l’AFC**
+```{r}
+res.hcpc=HCPC(res.ca,graph = FALSE,nb.clust = -1)
+
+```
+
+**Visualisons le dendrogramme généré par la classification**
+```{r}
+fviz_dend(res.hcpc, show_labels = FALSE)
+
+```
+**Figure 7: Dendrogramme des classes**
+
+Le dendrogramme suggère une solution à 3 groupes
+
+**Visualisons les profils et colorons par groupes sur le plan factoriel**
+
+```{r message=FALSE,warning=FALSE}
+fviz_cluster(res.hcpc,
+             repel = TRUE,            
+             show.clust.cent = TRUE, 
+             palette = "jco",         
+             ggtheme = theme_minimal(),
+             main = "Factor map"
+             )
+```
+**Figure 8: Repartion des classes sur plan**
+
+**Description et sémantique de chaque groupe**
+
+
+**Suivant les Profils lignes**
+
+```{r}
+res.hcpc$desc.ind
+```
+1. Pour la classe 1, les paragons, c'est à dire les départements  représentatifs sont *Gard, Aude, pyrénées-orientales,Isère et Hérault* (ils ressemblent le plus à la moyenne de la classe 1). Les départements de la classe 1 peuvent être résumés par ces 5 départements. 
+Pour la classe 1, les départements les plus caractéristiques c-à-d ceux qui s'éloignent  les plus des autres classes sont *Guyane, Paris, Mayotte Loire-Athlantique et Gironde*.
+
+2. Pour la classe 2, les paragons sont *Alpes-de-Haute-Provence, Vosges, Var, Seine-et-Marne, Vaucluse* (ils ressemblent le plus à la moyenne de la classe 2). Les départements de la classe 2 peuvent être résumés par ces 5 départements. 
+Pour la classe 2, les départements les plus caractéristiques c-à-d ceux qui se distinguent les plus des autres classes sont *Territoire de Belfort, Haute-Loire, Hautes-Alpes*.
+
+3. Même chose pour la classe 3, les paragons sont *Tarn, Charente, Côtes-d'Armor, Loir-et-Cher Tarn-et-Garonne* et les plus caractérisant sont *La Réunion, Mayenne, Cantal, Haut-Rhin et Manche*
+
+**Description des classes suivant les Profils colonnes(les variables)**
+
+```{r}
+res.hcpc$desc.var
+```
+
+```{r}
+departement <- row.names(res.hcpc$data.clust)
+clust_crim = cbind(departement,subset(res.hcpc$data.clust,select = "clust"))
+
+names(clust_crim) <- c("departement","Type_criminalite")
+ clust_crim <- data.frame(lapply(clust_crim, function(x) {
+                 gsub("1", "type_vols", x)
+            }))
+  clust_crim <- data.frame(lapply(clust_crim, function(x) {
+                 gsub("2", "type_VUS", x)
+            }))
+   clust_crim <- data.frame(lapply(clust_crim, function(x) {
+                 gsub("3", "type_detruct&degra", x)
+            }))                 
+                 
+```
+
+On peut dire que :
+
+**La classe 1** qui  est composée des profils lignes telles que Paris, Loire-Atlantique, Gironde etc., est caractérisé par :
+
+-	une forte fréquence de la modalité *Vols_Cambriolages* 
+
+- une faible fréquence des modalités *Coups_et_blessures, violences_Menaces, viol_Harcelements(du plus rare au plus commun).*
+
+**La classe 2** qui est composée des profils lignes telles que *Seine-Saint-Denis, Guadeloupe,  Martinique* etc., est caractérisé par :
+
+- une forte fréquence des modalités *Ventes_usage_stupefiant, Port_et_Detention_Armes_prohibe, Coups_et_blessures, violences_Menaces, Prisedotage_Sequestration_Attentat et Homicide_et_tentative* (du plus commun au plus rare).
+
+- une faible fréquence des modalités *Vols_Cambriolages, Falsification_escroquerie, Destruction_Degradation et viol_Harcelements* (du plus rare au plus commun).
+
+**La classe 3** qui est composée des profils lignes telles que *Pas-de-Calais, Haut-Rhin, La Réunion* etc., est caractérisé par :
+
+- une forte fréquence des modalités *Destruction_Degradation, Falsification_escroquerie, viol_Harcelements, violences_Menaces, Coups_et_blessures et Ventes_usage_stupefiant* (du plus commun au plus rare).
+
+- une faible fréquence des modalités *Vols_Cambriolages, Homicide_et_tentative et Port_et_Detention_Armes_prohibe* (du plus rare au plus commun).
+
+## Etude sur les indicateurs sociaux
+
+### Analyse de l'ACP
+
+Nous procédons ici à une *Analyse en Composantes Principales (ACP) normée*, car les indicateurs sociaux sont des variables quantitatives .
+
+Nous rajoutons comme variable supplémentaire quantitative **le taux de criminalité**
+
+```{r message=FALSE}
+nb <- estim_ncpPCA(indicsociaux,ncp.max=5)
+res.comp <- imputePCA(indicsociaux,ncp=2)
+res.pca <- PCA(res.comp$completeObs, quanti.sup = 13, scale.unit = TRUE, ncp = 5,graph= FALSE)
+```
+
+Nous utilisons le package missMDA pour estimer les valeurs manquantes , la PCA classique renvoie un warning
+
+```{r message=FALSE, warning=FALSE}
+eig.val <- get_eigenvalue(res.pca) 
+eig.val
+fviz_eig(res.pca, addlabels = TRUE, ylim = c(0, 60))
+```
+
+Nous cherchons a trouver le nombre optimal d'axe a retenir . Ici c'est les deux premiers axes en utilisant le critere de Kaiser.
+
+```{r message=FALSE, warning=FALSE}
+ind <- get_pca_ind(res.pca) 
+coord<-ind$coord[,1]
+contrib<-ind$contrib[,1]
+cos2<-ind$cos2[,1]
+display<-cbind(coord,contrib,cos2)
+#display
+imgage<- image_read("image/image01.png")
+plot(imgage, main="my image")
+
+```
+
+Le coté positif de l'axe 1 est representé par Guyane,Reunion,Guadeloupe,Martinique.
+Ces départements ont des valeurs similaires sur les critères sociaux en opposition à la Haute-Savoie,savoie,les Hauts-de-Seine et yvelines qui representent le coté négatif de l'axe 1.
+
+```{r message=FALSE, warning=FALSE}
+ind <- get_pca_ind(res.pca) 
+coord<-ind$coord[,2]
+contrib<-ind$contrib[,2]
+cos2<-ind$cos2[,2]
+display<-cbind(coord,contrib,cos2)
+#display
+imgage<- image_read("image/image02.png")
+plot(imgage, main="my image")
+```
+
+Et sur le coté positif de l'axe 2 est représenté par Paris et Val de Marne par opposition au coté negatif qui est représenté par Nievre et la Creuse
+
+Représentation graphique des individus sur les deux premiers axes.
+
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+fviz_pca_ind(res.pca, col.ind = "cos2",
+              gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             title="Les Departements Francais",
+             repel = TRUE)
+```
+**Représentation graphiques des individus selon leurs Cos^2**
+
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+fviz_pca_ind (res.pca, pointsize = "contrib",
+              pointshape = 21, fill = "#E7B800",title="Les Departements Francais",
+              repel = TRUE)
+```
+**Représentation graphiques des individus selon leurs Contributions**
+
+```{r message=FALSE, warning=FALSE}
+var <- get_pca_var(res.pca) 
+coord<-var$coord[,1]
+contrib<-var$contrib[,1]
+cos2<-var$cos2[,1]
+display<-cbind(coord,contrib,cos2)
+#display
+imgage<- image_read("image/image03.png")
+plot(imgage, main="my image")
+```
+
+Le coté positif de l'axe 1 est représenté par les variables Part d'enfant dont les parents sont sans enfants,Taux de pauvreté,Taux de chomage annuel,Part allocataire RSA 15-64.ans
+Les départements qui  ont été mal noté dans ces critères ont été projetés dans ce coté. 
+Le Taux d'activité population,Niveau de vie median, qui représentent le coté négatif de l'axe 1.
+Les départements qui  ont été bien noté dans ces critères ont été projetés dans ce coté.
+
+```{r message=FALSE, warning=FALSE}
+var <- get_pca_var(res.pca) 
+coord<-var$coord[,2]
+contrib<-var$contrib[,2]
+cos2<-var$cos2[,2]
+display<-cbind(coord,contrib,cos2)
+#display
+imgage<- image_read("image/image04.png")
+plot(imgage, main="my image")
+```
+
+Le coté positif de l'axe 2 est representé par les variables Taux logement suroccupé,Population de moins de 25 ans. Les départements qui  ont été mal noté dans ces critères ont été projetés dans ce coté. 
+Le Taux de mortalité représente le coté négatif de l'axe 2.
+Les départements qui  ont été mal noté dans ce critère ont été projetés dans ce coté.
+
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+fviz_cos2(res.pca, choice = "var", axes = 1:2)
+library("corrplot")
+corrplot(var$cos2, is.corr=FALSE)
+```
+**Representation graphique des du cos^2 variables suivant les dimensions*
+
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+fviz_pca_var(res.pca, title="Critères de notation des Departements avec variable illustrative", repel=TRUE)
+```
+**Representation graphique des variables*
+
+Nous remarquons que les départements qui ont un *Taux de criminalité élevé*, ont aussi un *taux de logement suroccupé* et *population de moins de 25 ans* élevés, par contre leurs *taux de mortalité* est trés faible**.
+
+Les variables *Part d'enfant dont les parents sont sans enfants*,*Taux de pauvreté*,*Taux de chomage annuel*,*Part allocataire RSA 15-64ans* sont  fortement liés elles.
+
+
+*
+
+### Classification
+
+Dans cette partie, nous réalisons une classification pour explorer nos données. 
+Les questions qui peuvent se poser et qui feront l'objet de l'analyse sont les suivantes :
+
+1. Quels sont les indvidus les plus caractéristiques pour une partition donnée. 
+2. Quelles sont les variables qui caractérisent le mieux la partition de chaque classe. 
+
+**Appliquons la classification hiérarchique sur le résultat de l’ACP**
+
+```{r}
+res.hcpc <- HCPC(res.pca, nb.clust = 3,graph=FALSE)
+test1 = res.hcpc$data.clust[,10:11]
+fviz_dend(res.hcpc, show_labels = FALSE)
+
+```
+**Visualisons le dendrogramme généré par la classification**
+
+```{r message=FALSE, warning=FALSE}
+
+fviz_cluster(res.hcpc,
+             repel = TRUE,            
+             show.clust.cent = TRUE, 
+             palette = "jco",        
+             ggtheme = theme_minimal(),
+             main = "Factor map"
+             )
+```
+
+**Description des classes suivant Suivant les individus**
+
+```{r}
+res.hcpc$desc.ind
+```
+
+1. Pour la classe 1, les paragons, c'est à dire les départements  représentatifs sont *Isère,Haute-Garonne,Gironde ,Seine-et-Marne,       Bas-Rhin* (ils ressemblent le plus à la moyenne de la classe 1). Les départements de la classe 1 peuvent être résumés par ces 5 départements. 
+Pour la classe 1, les départements les plus caractéristiques c-à-d ceux qui s'éloignent  les plus des autres classes sont *Paris,Hauts-de-Seine, Seine-Saint-Denis,Haute-Savoie,Yvelines *.
+
+2. Pour la classe 2, les paragons sont *Tarn,Moselle,Haute-Saône,Ardèche,Bas-Rhin,Charente-Maritime*. 
+Pour la classe 2, les départements les plus caractéristiques sont *Pyrénées-Orientales,Creuse,Pas-de-Calais,Nièvre,Aisne*.
+
+3. Pour la classe 3, le paragon est *reunion*. 
+Pour la classe 2, le département le plus caractéristique est *Guyane*.
+
+**Description des classes suivant les variables**
+
+```{r}
+res.hcpc$desc.var
+```
+
+On peut dire que :
+
+**La classe 1** qui  est composée des individus telles que Paris,Hauts-de-Seine, Seine-Saint-Denis etc., est caractérisé par :
+
+-	des valeurs supérieures a la moyenne *Esperance de vie Hommes,Niveau de vie median...* 
+
+- des valeurs inférieures a la moyenne *Taux de mortalité,jeunes non inserés...*
+
+**La classe 2** qui  est composée des individus telles que Creuse,Pas-de-Calais,Nièvre etc., est caractérisé par :
+
+-	des valeurs supérieures a la moyenne *Taux de mortalité,jeunes non inserés...* 
+
+- des valeurs inférieures a la moyenne *Taux de logements suroccupé,population de moins de 25 ans...*
+
+**La classe 3** qui  est composée des individus telles que reunion,Guyane,Martinique etc., est caractérisé par :
+
+-	des valeurs superieures a la moyenne *Part allocataire RSA 15-64 ans,Part des jeunes en difficulté de lecture...* 
+
+- des valeurs inferieures a la moyenne *Niveau de vie median,Taux d'activité population.*
+
+# Conclusion
+
+```{r}
+imgage1<- image_read("image/carte criminalite.JPG")
+imgage2<- image_read("image/carte indicateurs sociaux.JPG")
+par(mfrow=c(1,2))
+plot(imgage1)
+title(main = "carte classification criminalite",font.main= 1)
+plot(imgage2)
+title(main = "carte classification indicateurs",font.main= 1)
+```
+
+Pour chacune de nos analyses ci-dessus, nous avons eu à remarquer qu’il existe des différences entre les départements peu importe l’axe d’analyse.
+En ce qui concerne la criminalité, nous avons remarqué qu’il existe 3 profils ou types de département qui sont :
+
+- **Groupe 1(jaune)** : les départements où il y a une plus de *vols et cambriolages* que la moyenne, mais moins de *crimes et délits violents* Ex : Paris, Gironde, Loire-Atlantique
+
+- **Groupe 2(rouge)** : les départements où il y a plus de *ventes de stupéfiants* et *l’usage ou détention d’armes prohibées* que la moyenne, mais moins de *vols et cambriolages* Ex : Seine-Saint-Denis, Guadeloupe, Martinique
+
+- **Groupe 3(orange)** : puis les départements où il y a plus de *destruction, dégradation de biens*, *falsification, escroquerie* que la moyenne, mais moins de *Vols et cambriolage* ou *détention d’armes prohibé* Ex : Pas-de-Calais, Haut-Rhin, La Réunion
+
+La répartition de ces 3 différents profils sont visibles sur la carte de criminalité ci-dessus.
+
+En ce qui concerne les indicateurs sociaux, nous avons remarqué qu’il existe aussi 3 profils ou type de département qui sont :
+
+- **Groupe 1(jaune)** : les départements où il y a une plus grande *espérance de vie Hommes* et *un niveau de vie médian supérieur* a la moyenne Ex : Paris, Hauts-de-Seine, Seine-Saint-Denis
+
+- **Groupe 2(orange)** : les départements où il y a un plus grand *taux de mortalité* et de *jeunes non insérés* que la moyenne, mais *moins de logements suroccupés* ou de *population jeune* Ex : Creuse, Pas-de-Calais, Nièvre
+
+- **Groupe 3(rouge)** : puis les départements où il y a plus de *Part allocataire RSA 15-64 ans*, *Part des jeunes en difficulté de lecture* que la moyenne Ex : Réunion, Guyane, Martinique
+
+La répartition de ces 3 différents profils sont visibles sur la carte d’indicateur sociaux ci-dessus.
+
+Nous avons remarqué la plupart des départements qui ont généralement les mêmes types de criminalités sont également regroupés suivant les mêmes critères sociaux Cf : la coloration des cartes.
+
+Cela pourrait laisser à penser que le niveau de développement d’un département a un impact sur le type de crimes ou délits commis même si bien évidemment une conclusion ne peut pas encore être tirée.
+
+Les départements les plus développés comme Paris connaissent plus de vols et cambriolages que la moyenne, les départements avec des scores dans la moyenne auront plus de destructions et dégradation des biens et les départements les moins développés comme la Martinique, nous avons plus de ventes de stupéfiants ou détention ou usage d’arme prohibés.
+
+```{r}
+departement <- row.names(res.hcpc$data.clust)
+clust_indc = cbind(departement,subset(res.hcpc$data.clust,select = "clust"))
+
+names(clust_indc) <- c("departement","indic_sociaux")
+ clust_indc <- data.frame(lapply(clust_indc, function(x) {
+                 gsub("1", "indic_bon", x)
+            }))
+clust_indc <- data.frame(lapply(clust_indc, function(x) {
+                 gsub("2", "indic_moyen", x)
+            }))
+ clust_indc <- data.frame(lapply(clust_indc, function(x) {
+                 gsub("3", "indic_faible", x)
+            })) 
+   
+ matrice <- merge(clust_indc,clust_crim,by = "departement")
+   
+ contingence<-table(matrice$Type_criminalite,factor(matrice$indic_sociaux, levels = c("indic_bon", "indic_moyen","indic_faible")))
+ contingence
+ plot(contingence)
+ fisher <- fisher.test(contingence) 
+ fisher
+```
+Nous utilisons un test de Fisher, car nous avions un effectif trop faible pour le test du chi_2, mais la conclusion est la même avec une p value de 0.001086, nous rejetons l'hypothèse d'indépendance des variables : **Le type de crimes ou délits commis dans un département est lié à son "niveau de développement"**
